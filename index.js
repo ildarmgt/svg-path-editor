@@ -5,9 +5,13 @@ const stateInitialize = {
   activePoint: null,
   framesPerSecond: 24,
   strokeWidth: 3,
-  gridSnapSize: 20,
+  gridSnapSize: 10,
   gridSnapOn: false,
-  selectDistance: 20
+  selectDistance: 10,
+  backgroundImage:
+    'https://cdn.pixabay.com/photo/2018/07/14/07/58/cat-3537115_960_720.jpg',
+  placeholderPath: `M 162 71 L 92 555 L 176 544 L 218 342 L 288 347 L 239 563 L 340 544 L 425 68 L 332 91 L 301 285 L 215 276 L 268 60 L 162 71 Z M 438 536 L 496 310 L 556 299 L 539 550 L 438 536 Z M 502 232 Q 514 204 543 199 Q 585 199 572 234 Q 562 265 528 267 Q 497 267 502 232 Z M 711 101 L 711 562 Q 830 435 861 381 Q 931 553 990 572 Q 988 293 1090 122 L 1039 79 Q 932 356 947 411 L 877 278 Q 785 411 759 407 L 782 65 L 711 101 Z M 1073 472 Q 1083 363 1152 364 Q 1250 363 1221 459 Q 1200 546 1140 554 Q 1061 566 1073 472 Z M 1131 509 Q 1169 514 1184 465 Q 1204 407 1156 404 Q 1123 407 1110 448 Q 1095 505 1131 509 Z M 1252 548 L 1280 358 L 1324 358 L 1316 398 Q 1381 358 1432 389 L 1417 433 Q 1359 399 1311 445 L 1311 445 L 1289 546 L 1252 548 Z M 1497 99 L 1450 553 L 1510 546 Q 1542 188 1544 144 Q 1515 125 1497 99 Z M 1599 426 Q 1554 467 1575 499 Q 1604 559 1736 535 L 1748 117 L 1700 136 L 1698 398 Q 1645 395 1599 426 Z M 1624 453 Q 1706 407 1704 479 Q 1705 526 1635 504 Q 1587 478 1624 453 Z`,
+  highlightedPath: ''
 }
 
 const mouseInitialize = {
@@ -44,7 +48,7 @@ const initialize = () => {
   window.addEventListener('mousemove', handleMouseMove)
   window.addEventListener('mousedown', handleMouseDown)
   window.addEventListener('mouseup', handleMouseUp)
-  document.addEventListener('keydown', handleKeyDown)
+  window.addEventListener('keydown', handleKeyDown)
 
   // set to fill paths and show strokes
   styleToFillShapes(true)
@@ -52,6 +56,7 @@ const initialize = () => {
   updateHistory()
 
   initialImage()
+  loadBackgroundImage(state.backgroundImage)
 
   // start rendering
   renderLoop()
@@ -72,21 +77,31 @@ const renderLoop = async () => {
   await new Promise(r => setTimeout(r, 1000 / state.framesPerSecond))
 
   // keep printing path text on top of svg
-  window.datadiv.innerHTML = '  Path automatically copied to clipboard\n'
+  window.datadiv.innerHTML = '\n'
+  window.datadiv.innerHTML += '    left click \t\t- to start drawing\n'
+  window.datadiv.innerHTML += '    left drag \t\t- to curve while drawing\n'
   window.datadiv.innerHTML +=
-    '    left click to start drawing\n    right click to cancel\n    drag to curve\n'
+    '    right click \t\t- to cancel selection or complete shape \n'
+  window.datadiv.innerHTML += '    left click points \t- to edit points\n'
   window.datadiv.innerHTML +=
-    '    to edit points, cancel drawing and click on existing points\n'
+    '    direction \t\t- opposite directions to create openings\n'
   window.datadiv.innerHTML +=
-    '    change direction to create openings in shapes\n'
-  window.datadiv.innerHTML +=
-    '    move red control dot onto green select dot to convert to a line\n'
-  window.datadiv.innerHTML += `    q to clear everything\n`
-  window.datadiv.innerHTML += `    g to turn grid snap on (now ${state.gridSnapOn})\n`
-  window.datadiv.innerHTML += '    z to undo, y to redo\n'
-  window.datadiv.innerHTML += '    d to delete selected pointd\n'
-  window.datadiv.innerHTML += '    a to add new point on top of selected\n\n'
-  window.datadiv.innerHTML += window.svgPath.getAttribute('d')
+    '    curve or line \t- move red control dot to edit curve or move onto green to make into a line\n\n'
+  window.datadiv.innerHTML += '    "c" to copy svg path to clipboard\n'
+  window.datadiv.innerHTML += `    "v" to clear/load image url from clipboard (jpg/png) (now: ${state.backgroundImage ||
+    'none'})\n`
+  window.datadiv.innerHTML += '    "z" to undo\n'
+  window.datadiv.innerHTML += '    "y" to redo\n'
+  window.datadiv.innerHTML += `    "q" to clear everything\n`
+  window.datadiv.innerHTML += `    "g" to turn grid snap on (now ${state.gridSnapOn})\n`
+
+  window.datadiv.innerHTML += '    "d" to delete selected point\n'
+  window.datadiv.innerHTML += '    "a" to add new point on top of selected\n'
+  window.datadiv.innerHTML += '    "w" to resize path to fit viewscreen\n'
+
+  window.datadiv.innerHTML += '\n\n' + state.highlightedPath // window.svgPath.getAttribute('d')
+
+  // window.focus() // keep getting focus for keyboard events
 
   // loop forever
   window.requestAnimationFrame(() => renderLoop())
@@ -99,13 +114,6 @@ const renderLoop = async () => {
 const handleMouseDown = e => {
   // const { button } = e
   handleMouseMove(e, { down: true })
-
-  console.log('down', {
-    activePointIndex: state.activePoint,
-    activePoint: state.path[state.activePoint],
-    state,
-    attribute: window.svgPath.getAttribute('d')
-  })
 
   /* ----------------- cancel drawing point via right click ----------------- */
 
@@ -166,13 +174,6 @@ const handleMouseDown = e => {
 const handleMouseUp = e => {
   const { button } = e
   updateMousePosition(e, { up: true })
-
-  console.log('up', {
-    activePointIndex: state.activePoint,
-    activePoint: state.path[state.activePoint],
-    state,
-    attribute: window.svgPath.getAttribute('d')
-  })
 
   const selectedPoint = state.path[mouse.lastSelectedIndex]
   const isControlPointNearby = selectedPoint
@@ -326,8 +327,6 @@ const handleMouseMove = (e, { down = false, up = false } = {}) => {
 
     // if is not curved move control point to specific point
     if (isDrawing && !mouse.left.down && !active.isCurved) {
-      // active.xQ = (0.5 * mouse.x + 0.5 * previousToActive.x) << 0
-      // active.yQ = (0.5 * mouse.y + 0.5 * previousToActive.y) << 0
       active.xQ = mouse.x
       active.yQ = mouse.y
     }
@@ -392,11 +391,6 @@ const handleMouseMove = (e, { down = false, up = false } = {}) => {
       selected.yQ = selected.y
       selected.isCurved = false
     }
-  }
-
-  /* ------------------- copy path to clipboard on mouse up ------------------- */
-  if (up) {
-    copyToClipboard(window.svgPath.getAttribute('d'))
   }
 }
 
@@ -538,19 +532,30 @@ const styleToFillShapes = doIt => {
 
 const makePath = () => {
   let path = ''
+  state.highlightedPath = ''
+
   for (let i = 0; i < state.path.length; i++) {
     const point = state.path[i]
+    let thisSegment = ''
     // close shape point
-    if (point.type === 'Z') path += `${point.type} `
+    if (point.type === 'Z') thisSegment += `${point.type} `
     else if (point.type === 'M' || point.type === 'L')
-      path += `${point.type} ${point.x} ${point.y} `
+      thisSegment += `${point.type} ${point.x} ${point.y} `
     // types M L so on with 2 coods
     else if (point.type === 'Q' && point.isCurved)
-      path += `${point.type} ${point.xQ} ${point.yQ} ${point.x} ${point.y} `
+      thisSegment += `${point.type} ${point.xQ} ${point.yQ} ${point.x} ${point.y} `
     // save space by drawing non curved Q as L
     else if (point.type === 'Q' && !point.isCurved)
-      path += `L ${point.x} ${point.y} `
+      thisSegment += `L ${point.x} ${point.y} `
     else console.log('unknown point type:', i, point)
+    // update regular path and the one shown inside #datadiv
+    // with selected point highlighted with span
+    path += thisSegment
+    if (mouse.lastSelectedIndex !== null && i === mouse.lastSelectedIndex) {
+      state.highlightedPath += '<span>' + thisSegment + '</span>'
+    } else {
+      state.highlightedPath += thisSegment
+    }
   }
   return path
 }
@@ -577,6 +582,16 @@ const copyToClipboard = text => {
   document.body.removeChild(input)
 }
 
+const pasteFromClipboard = async () => {
+  let clipboard = ''
+  try {
+    clipboard = await navigator.clipboard.readText()
+  } catch (e) {
+    clipboard = window.prompt('paste image url here')
+  }
+  return clipboard
+}
+
 // undo/redo history
 const updateHistory = () => {
   state.history = state.history.slice(0, state.historyIndex + 1)
@@ -587,7 +602,6 @@ const updateHistory = () => {
     state.history.push(newState)
 
   state.historyIndex = state.history.length - 1
-  // console.log(state.historyIndex, state.history.length)
 }
 
 /* -------------------------------------------------------------------------- */
@@ -620,6 +634,14 @@ const handleKeyDown = e => {
         'of',
         state.history.length - 1
       )
+      alertUser(
+        `undo activated ${state.historyIndex} / ${state.history.length - 1}`
+      )
+    } else {
+      state.path = []
+      state.activePoint = null
+      mouse.lastSelectedIndex = null
+      alertUser(`cleared ${state.historyIndex} / ${state.history.length - 1}`)
     }
   }
 
@@ -644,6 +666,9 @@ const handleKeyDown = e => {
         state.historyIndex,
         'of',
         state.history.length - 1
+      )
+      alertUser(
+        `redo activated ${state.historyIndex} / ${state.history.length - 1}`
       )
     }
   }
@@ -698,6 +723,7 @@ const handleKeyDown = e => {
       mouse.lastSelectedIndex = null
       mouse.nearby = []
       updateHistory()
+      alertUser('point(s) deleted')
     }
   }
 
@@ -718,9 +744,27 @@ const handleKeyDown = e => {
       mouse.lastSelectedIndex++
       console.log('added a new point')
       updateHistory()
+      alertUser('added a new point')
     }
   }
 
+  /* ------------------------- copy path to clipboard ------------------------- */
+  if (e.key.toLowerCase() === 'c') {
+    copyToClipboard(window.svgPath.getAttribute('d').trim())
+    alertUser('path copied to clipboard')
+  }
+
+  /* --------------------- paste image url from clipboard --------------------- */
+
+  if (e.key.toLowerCase() === 'v') {
+    if (!state.backgroundImage)
+      (async () => {
+        loadBackgroundImage(await pasteFromClipboard())
+      })()
+    else {
+      loadBackgroundImage('')
+    }
+  }
   /* -------------------------------- toggle snap ------------------------------- */
   if (e.key.toLowerCase() === 'g') {
     state.gridSnapOn = !state.gridSnapOn
@@ -732,6 +776,7 @@ const handleKeyDown = e => {
       window.transformedPattern.setAttribute('height', 0)
     }
     console.log('toggled snap to', state.gridSnapOn)
+    alertUser('toggled snap to ' + state.gridSnapOn)
   }
 
   /* -------------------------------- clear all ------------------------------- */
@@ -740,32 +785,176 @@ const handleKeyDown = e => {
     mouse = JSON.parse(JSON.stringify(mouseInitialize))
     state = JSON.parse(JSON.stringify(stateInitialize))
     console.log('everything reset')
+    alertUser('everything reset')
   }
+
+  /* ------------------------------ resize shape ----------------------------- */
+  if (e.key.toLowerCase() === 'w') {
+    // reset mouse and state
+    if (state.path.length > 3) {
+      resizeToFit()
+      updateHistory()
+      console.log('path resized')
+      alertUser('path resized')
+    }
+  }
+}
+
+const loadBackgroundImage = url => {
+  console.log(url)
+  if (url) {
+    if (
+      url.endsWith('.jpg') ||
+      url.endsWith('.png') ||
+      url.endsWith('.gif') ||
+      url.endsWith('.jpeg')
+    ) {
+      state.backgroundImage = url
+      updateHeader(
+        `
+        #backgroundImage {
+          background: url("${state.backgroundImage}") no-repeat center center fixed;
+          -webkit-background-size: cover;
+          -moz-background-size: cover;
+          -o-background-size: cover;
+          background-size: cover;
+        }
+      `,
+        'for_backgroundImage'
+      )
+      alertUser('image url loaded')
+    } else {
+      state.backgroundImage = ''
+      updateHeader('', 'for_backgroundImage')
+      alertUser('image url was not jpeg/jpg/png/gif')
+    }
+  } else {
+    state.backgroundImage = ''
+    updateHeader('', 'for_backgroundImage')
+    alertUser('background image cleared')
+  }
+}
+
+let alertTimer1 = null,
+  alertTimer2 = null
+
+const alertUser = text => {
+  window.alertUser.innerHTML = text
+  window.alertUser.style.visibility = 'visible'
+  window.alertUser.style.opacity = '0.999'
+  if (alertTimer1) {
+    clearTimeout(alertTimer1)
+    clearTimeout(alertTimer2)
+  }
+  alertTimer1 = setTimeout(() => {
+    window.alertUser.style.visibility = 'visible'
+    window.alertUser.style.opacity = '0'
+  }, 3000)
+  alertTimer2 = setTimeout(() => {
+    window.alertUser.style.visibility = 'hidden'
+    window.alertUser.style.opacity = '0'
+  }, 5000)
 }
 
 // few constants I need
 const [LEFT_MOUSE_BUTTON, RIGHT_MOUSE_BUTTON] = [0, 2]
 
-// initial words
-const initialImage = () => {
-  state.path = JSON.parse(
-    `[{"type":"M","x":152,"y":64},{"type":"Q","x":105,"y":390,"xQ":105,"yQ":390,"isCurved":false},{"type":"Q","x":161,"y":393,"xQ":161,"yQ":393,"isCurved":false},{"type":"Q","x":190,"y":246,"xQ":190,"yQ":246,"isCurved":false},{"type":"Q","x":237,"y":250,"xQ":237,"yQ":250,"isCurved":false},{"type":"Q","x":206,"y":388,"xQ":206,"yQ":388,"isCurved":false},{"type":"Q","x":277,"y":374,"xQ":277,"yQ":374,"isCurved":false},{"type":"Q","x":329,"y":62,"xQ":329,"yQ":62,"isCurved":false},{"type":"Q","x":266,"y":78,"xQ":266,"yQ":78,"isCurved":false},{"type":"Q","x":246,"y":208,"xQ":246,"yQ":208,"isCurved":false},{"type":"Q","x":188,"y":202,"xQ":188,"yQ":202,"isCurved":false},{"type":"Q","x":224,"y":57,"xQ":224,"yQ":57,"isCurved":false},{"type":"Q","x":152,"y":64,"xQ":152,"yQ":64,"isCurved":false},{"type":"Z"},{"type":"M","x":338,"y":377},{"type":"Q","x":377,"y":225,"xQ":377,"yQ":225,"isCurved":false},{"type":"Q","x":417,"y":218,"xQ":417,"yQ":218,"isCurved":false},{"type":"Q","x":406,"y":386,"xQ":406,"yQ":386,"isCurved":false},{"type":"Q","x":338,"y":377,"xQ":338,"yQ":377,"isCurved":false},{"type":"Z"},{"type":"M","x":381,"y":172},{"type":"Q","x":409,"y":150,"xQ":389,"yQ":154,"isCurved":true},{"type":"Q","x":428,"y":174,"xQ":436,"yQ":150,"isCurved":true},{"type":"Q","x":398,"y":196,"xQ":421,"yQ":194,"isCurved":true},{"type":"Q","x":381,"y":172,"xQ":378,"yQ":196,"isCurved":true},{"type":"Z"},{"type":"M","x":522,"y":85},{"type":"Q","x":522,"y":394,"xQ":522,"yQ":394,"isCurved":false},{"type":"Q","x":622,"y":273,"xQ":601,"yQ":309,"isCurved":true},{"type":"Q","x":709,"y":401,"xQ":669,"yQ":388,"isCurved":true},{"type":"Q","x":776,"y":98,"xQ":708,"yQ":213,"isCurved":true},{"type":"Q","x":742,"y":70,"xQ":742,"yQ":70,"isCurved":false},{"type":"Q","x":680,"y":293,"xQ":670,"yQ":256,"isCurved":true},{"type":"Q","x":633,"y":204,"xQ":633,"yQ":204,"isCurved":false},{"type":"Q","x":554,"y":290,"xQ":572,"yQ":293,"isCurved":true},{"type":"Q","x":569,"y":60,"xQ":569,"yQ":60,"isCurved":false},{"type":"Q","x":522,"y":85,"xQ":522,"yQ":85,"isCurved":false},{"type":"Z"},{"type":"M","x":765,"y":334},{"type":"Q","x":818,"y":261,"xQ":772,"yQ":260,"isCurved":true},{"type":"Q","x":864,"y":325,"xQ":884,"yQ":260,"isCurved":true},{"type":"Q","x":810,"y":389,"xQ":850,"yQ":384,"isCurved":true},{"type":"Q","x":765,"y":334,"xQ":757,"yQ":397,"isCurved":true},{"type":"Z"},{"type":"M","x":804,"y":358},{"type":"Q","x":840,"y":329,"xQ":829,"yQ":362,"isCurved":true},{"type":"Q","x":821,"y":288,"xQ":852,"yQ":290,"isCurved":true},{"type":"Q","x":790,"y":318,"xQ":798,"yQ":290,"isCurved":true},{"type":"Q","x":804,"y":358,"xQ":780,"yQ":356,"isCurved":true},{"type":"Z"},{"type":"M","x":885,"y":385},{"type":"Q","x":904,"y":257,"xQ":904,"yQ":257,"isCurved":false},{"type":"Q","x":933,"y":257,"xQ":933,"yQ":257,"isCurved":false},{"type":"Q","x":928,"y":284,"xQ":928,"yQ":284,"isCurved":false},{"type":"Q","x":1006,"y":278,"xQ":972,"yQ":257,"isCurved":true},{"type":"Q","x":996,"y":308,"xQ":996,"yQ":308,"isCurved":false},{"type":"Q","x":925,"y":316,"xQ":957,"yQ":285,"isCurved":true},{"type":"Q","x":925,"y":316,"xQ":925,"yQ":316,"isCurved":false},{"type":"Q","x":910,"y":384,"xQ":910,"yQ":384,"isCurved":false},{"type":"Q","x":885,"y":385,"xQ":885,"yQ":385,"isCurved":false},{"type":"Z"},{"type":"M","x":1053,"y":121},{"type":"Q","x":1000,"y":388,"xQ":1000,"yQ":388,"isCurved":false},{"type":"Q","x":1045,"y":385,"xQ":1045,"yQ":385,"isCurved":false},{"type":"Q","x":1097,"y":105,"xQ":1097,"yQ":105,"isCurved":false},{"type":"Q","x":1053,"y":121,"xQ":1053,"yQ":121,"isCurved":false},{"type":"Z"},{"type":"M","x":1129,"y":302},{"type":"Q","x":1134,"y":382,"xQ":1068,"yQ":346,"isCurved":true},{"type":"Q","x":1197,"y":353,"xQ":1197,"yQ":386,"isCurved":true},{"type":"Q","x":1253,"y":134,"xQ":1253,"yQ":134,"isCurved":false},{"type":"Q","x":1201,"y":110,"xQ":1201,"yQ":110,"isCurved":false},{"type":"Q","x":1185,"y":284,"xQ":1204,"yQ":184,"isCurved":true},{"type":"Q","x":1129,"y":302,"xQ":1150,"yQ":289,"isCurved":true},{"type":"Z"},{"type":"M","x":1140,"y":325},{"type":"Q","x":1178,"y":330,"xQ":1181,"yQ":301,"isCurved":true},{"type":"Q","x":1137,"y":356,"xQ":1172,"yQ":365,"isCurved":true},{"type":"Q","x":1140,"y":325,"xQ":1121,"yQ":341,"isCurved":true},{"type":"Z"}]`
-  )
-
+const resizeToFit = (fractionToFill = 0.9) => {
+  if (!state.path.length || state.path.length <= 1) return undefined
   // resize to visible size
-  let widestPoint = 0
-  let maxWidth = window.innerWidth * 0.9
-  console.log('uh', { widestPoint })
+  let rightmostPoint = 0
+  let leftmostPoint = Infinity
+  let bottommostPoint = 0
+  let topmostPoint = Infinity
+
+  let maxWidthPx = window.innerWidth * fractionToFill
+  let maxHeightPx = window.innerHeight * fractionToFill
+
   for (let i = 0; i < state.path.length; i++) {
-    if (state.path[i].x > widestPoint) widestPoint = state.path[i].x
+    if (state.path[i].type === 'Z') continue
+    if (state.path[i].x > rightmostPoint) rightmostPoint = state.path[i].x
+    if (state.path[i].x < leftmostPoint) leftmostPoint = state.path[i].x
+    if (state.path[i].y < topmostPoint) topmostPoint = state.path[i].y
+    if (state.path[i].y > bottommostPoint) bottommostPoint = state.path[i].y
   }
+  let shapemaxWidthPx = rightmostPoint - leftmostPoint
+  let shapemaxHeightPx = bottommostPoint - topmostPoint
+
+  if (!shapemaxWidthPx || shapemaxWidthPx < 1) return undefined
+  if (!shapemaxHeightPx || shapemaxHeightPx < 1) return undefined
+
+  const conversionFactorWidth = maxWidthPx / shapemaxWidthPx
+  const conversionFactorHeight = maxHeightPx / shapemaxHeightPx
+  const conversionFactor = Math.min(
+    conversionFactorWidth,
+    conversionFactorHeight
+  )
+  const leftMargin = (window.innerWidth * (1 - fractionToFill)) / 2
+  const topMargin = (window.innerHeight * (1 - fractionToFill)) / 2
+
   for (let i = 0; i < state.path.length; i++) {
     const point = state.path[i]
-    if (point.x) state.path[i].x = ((point.x / widestPoint) * maxWidth) << 0
-    if (point.y) state.path[i].y = ((point.y / widestPoint) * maxWidth) << 0
-    if (point.xQ) state.path[i].xQ = ((point.xQ / widestPoint) * maxWidth) << 0
-    if (point.yQ) state.path[i].yQ = ((point.yQ / widestPoint) * maxWidth) << 0
+    if (point.x)
+      state.path[i].x =
+        ((point.x - leftmostPoint) * conversionFactor + leftMargin) << 0
+    if (point.y)
+      state.path[i].y =
+        ((point.y - topmostPoint) * conversionFactor + topMargin) << 0
+    if (point.xQ)
+      state.path[i].xQ =
+        ((point.xQ - leftmostPoint) * conversionFactor + leftMargin) << 0
+    if (point.yQ)
+      state.path[i].yQ =
+        ((point.yQ - topmostPoint) * conversionFactor + topMargin) << 0
   }
+}
+
+// initial placeholder conversion
+const initialImage = () => {
+  const pathToUse = state.placeholderPath
+
+  const pathSourceArray = pathToUse.split(' ')
+  // const pathResultArray = []
+
+  // let currentPt = ''
+  for (let i = 0; i < pathSourceArray.length; i++) {
+    const part = pathSourceArray[i]
+    if (part === 'M') {
+      state.path.push({
+        type: 'M',
+        x: +pathSourceArray[i + 1],
+        y: +pathSourceArray[i + 2]
+      })
+      i += 2
+    }
+    if (part === 'Q') {
+      state.path.push({
+        type: 'Q',
+        xQ: +pathSourceArray[i + 1],
+        yQ: +pathSourceArray[i + 2],
+        x: +pathSourceArray[i + 3],
+        y: +pathSourceArray[i + 4],
+        isCurved: true
+      })
+      i += 4
+    }
+    if (part === 'L') {
+      state.path.push({
+        type: 'Q',
+        xQ: +pathSourceArray[i + 1],
+        yQ: +pathSourceArray[i + 2],
+        x: +pathSourceArray[i + 1],
+        y: +pathSourceArray[i + 2],
+        isCurved: false
+      })
+      i += 2
+    }
+    if (part === 'Z') {
+      state.path.push({ type: 'Z' })
+    }
+  }
+
+  resizeToFit()
   updateHistory()
 }
 

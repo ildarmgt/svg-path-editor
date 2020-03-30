@@ -2,6 +2,9 @@
   <link rel="stylesheet" href="index.css" />
 </head>
 <body>
+  <!-- faded background -->
+  <div id="backgroundImage"></div>
+  <!-- all possible svg items -->
   <svg oncontextmenu="return false;">
     <!-- for users drawing -->
     <path id="svgPath" />
@@ -60,12 +63,10 @@
       style="fill: url(#transformedPattern);"
     />
   </svg>
-
-  <div
-    id="datadiv"
-    style="position: fixed; top: 0; left: 0;"
-    oncontextmenu="return false;"
-  ></div>
+  <!-- display instructions & data -->
+  <div id="datadiv" oncontextmenu="return false;"></div>
+  <!-- alert -->
+  <div id="alertUser" oncontextmenu="return false;"></div>
 
   <script src="index.js"></script>
 </body>

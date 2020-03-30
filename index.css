@@ -1,16 +1,10 @@
 :root {
   --fillColor: #2233cc22;
   --highlightedColor: #007d8688;
-  --selectedColor: #33ff00cc;
-  --strokeColor: #112233;
-  --controlColor: #ff3300cc;
+  --selectedColor: #33ff0088;
+  --strokeColor: #11223399;
+  --controlColor: #ff330088;
   --backgroundColor: darkturquoise;
-}
-
-svg {
-  height: 100%;
-  width: 100%;
-  background-color: var(--backgroundColor);
 }
 
 svg path {
@@ -42,11 +36,56 @@ html {
   width: 100%;
   height: 100%;
   font-family: sans-serif;
+  font-weight: normal;
   color: #22334477;
 }
 
-#datadiv {
+svg,
+#datadiv,
+#backgroundImage {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
   white-space: pre-wrap;
+}
+
+#datadiv span {
+  color: #26865181;
+  font-weight: bold;
+}
+
+div,
+svg,
+span,
+body,
+html {
   -moz-user-select: none;
   -webkit-user-select: none;
+}
+
+#backgroundImage {
+  opacity: 0.3;
+  background-color: var(--backgroundColor);
+}
+
+#alertUser {
+  visibility: hidden;
+  opacity: 0;
+  --alertWidth: 300px;
+  font-size: calc(var(--alertWidth) / 12);
+  min-width: var(--alertWidth);
+  margin-left: calc(-1 * var(--alertWidth) / 2);
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  border-radius: calc(var(--alertWidth) / 100);
+  padding: calc(var(--alertWidth) / 20) calc(var(--alertWidth) / 5);
+  position: fixed;
+  z-index: 1;
+  left: 50%;
+  bottom: calc(var(--alertWidth) / 10);
+  transition: opacity 1s;
 }
