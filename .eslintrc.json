@@ -1,0 +1,15 @@
+{
+  "extends": "eslint:recommended",
+  "parserOptions": {
+    "ecmaVersion": 9
+  },
+  "ignorePatterns": ["*.html"],
+  "env": {
+    "browser": true,
+    "es6": true,
+    "commonjs": true
+  },
+  "rules": {
+    "semi": "off"
+  }
+}

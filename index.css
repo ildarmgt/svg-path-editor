@@ -1,0 +1,45 @@
+:root {
+  --fillColor: #2233cc22;
+  --highlightedColor: #007d8688;
+  --selectedColor: #33ff00cc;
+  --strokeColor: #112233;
+  --backgroundColor: darkturquoise;
+}
+
+svg {
+  height: 100%;
+  width: 100%;
+  background-color: var(--backgroundColor);
+}
+
+svg path {
+  stroke: var(--strokeColor);
+}
+
+svg #highlightCircle {
+  fill: var(--highlightedColor);
+}
+
+svg #selectionCircle {
+  fill: var(--selectedColor);
+}
+
+body,
+html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: sans-serif;
+  color: #22334477;
+}
+
+#datadiv {
+  white-space: pre-wrap;
+  -moz-user-select: none;
+  -webkit-user-select: none;
+}
+
+#svgPath {
+  /* d: var(--myPath); */
+}

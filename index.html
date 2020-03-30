@@ -1,0 +1,35 @@
+<head>
+  <link rel="stylesheet" href="index.css" />
+</head>
+<body>
+  <svg oncontextmenu="return false;">
+    <!-- for entire drawing -->
+    <path id="svgPath" />
+    <!-- for seeing can select vertex -->
+    <circle
+      id="highlightCircle"
+      refX="center"
+      refY="center"
+      cx="5"
+      cy="5"
+      r="0"
+    />
+    <!-- actually selecting vertex -->
+    <circle
+      id="selectionCircle"
+      refX="center"
+      refY="center"
+      cx="5"
+      cy="5"
+      r="0"
+    />
+  </svg>
+
+  <div
+    id="datadiv"
+    style="position: fixed; top: 0; left: 0;"
+    oncontextmenu="return false;"
+  ></div>
+
+  <script src="index.js"></script>
+</body>
