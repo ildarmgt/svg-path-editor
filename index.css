@@ -3,6 +3,7 @@
   --highlightedColor: #007d8688;
   --selectedColor: #33ff00cc;
   --strokeColor: #112233;
+  --controlColor: #ff3300cc;
   --backgroundColor: darkturquoise;
 }
 
@@ -24,6 +25,16 @@ svg #selectionCircle {
   fill: var(--selectedColor);
 }
 
+svg #controlCircle {
+  fill: var(--controlColor);
+}
+
+svg #controlPath {
+  stroke: var(--controlColor);
+  stroke-dasharray: 4;
+  stroke-width: 1;
+}
+
 body,
 html {
   margin: 0;
@@ -38,8 +49,4 @@ html {
   white-space: pre-wrap;
   -moz-user-select: none;
   -webkit-user-select: none;
-}
-
-#svgPath {
-  /* d: var(--myPath); */
 }
