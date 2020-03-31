@@ -98,24 +98,24 @@ const renderLoop = async () => {
     mouse wheel     \t- scale path up/down around mouse ("w" to zoom fit)
     direction      \t- opposite path directions create shape fill openings
 
-    "c"   - copy svg path to clipboard
-    "w"   - resize path to fit viewscreen
-    "t"   - cycle selected or drawing type (selected: ${
+    "c"   \t- copy svg path to clipboard
+    "w"   \t- resize path to fit viewscreen
+    "t"   \t- cycle selected or drawing type (selected: ${
       state.path[mouse.lastSelectedIndex]
         ? state.path[mouse.lastSelectedIndex].type
         : 'n/a'
     }) (drawing: ${state.drawPointType})
-    "z"   - undo
-    "y"   - redo
-    "q"   - clear everything
-    "g"   - toggle grid snap (now ${state.gridSnapOn})
-    "d"   - delete selected point
-    "a"   - add new point on top of selected
-    "m"   - toggle showing all path point markers
-    "+-" - increase/decrease decimal places used in path (0-5, now ${
+    "z"   \t- undo
+    "y"   \t- redo
+    "q"   \t- clear everything
+    "g"   \t- toggle grid snap (now ${state.gridSnapOn})
+    "d"   \t- delete selected point
+    "a"   \t- add new point on top of selected
+    "m"   \t- toggle showing all path point markers
+    "+-"  \t- increase/decrease decimal places used in path (0-5, now ${
       state.decimals
     })
-    "v"   - clear/load image url from clipboard (jpg/png)
+    "v"   \t- clear/load image url from clipboard (jpg/png)
               (now: ${state.backgroundImage || 'none'})
 `
 
