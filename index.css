@@ -5,7 +5,7 @@
   --fillColor: #2233cc22;
   --highlightedColor: #007d8688;
   --selectedColor: #33ff0088;
-  --strokeColor: #11223399;
+  --strokeColor: #11223388;
   --controlColor: #ff330088;
   --controlColorLine: #ff330066;
   --backgroundColor: darkturquoise;
@@ -100,20 +100,20 @@ html {
   box-sizing: border-box;
   visibility: hidden;
   opacity: 0;
-  --alertWidth: 300px;
-  font-size: calc(var(--alertWidth) / 12);
+  --alertWidth: 50vmin;
   width: var(--alertWidth);
-  margin-left: calc(-1 * var(--alertWidth) / 2);
+  margin-left: calc(-0.5 * var(--alertWidth));
   background-color: #333;
   color: #fff;
   text-align: center;
   border-radius: calc(var(--alertWidth) / 100);
-  padding: calc(var(--alertWidth) / 20) calc(var(--alertWidth) / 5);
+  padding: calc(var(--fontSize) * 0.5) calc(var(--fontSize) * 2);
   position: fixed;
   z-index: 1;
   left: 50%;
-  bottom: calc(var(--alertWidth) / 10);
-  transition: opacity 1s;
+  bottom: calc(var(--fontSize));
+  font-weight: normal;
+  transition: opacity 0.5s;
 }
 
 @media screen and (min-aspect-ratio: 10/9) and (min-height: calc(1rem * 40)) {

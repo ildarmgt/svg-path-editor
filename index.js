@@ -11,7 +11,7 @@ const stateInitialize = {
   pointRadius: 6,
   backgroundImage:
     'https://cdn.pixabay.com/photo/2018/07/14/07/58/cat-3537115_960_720.jpg',
-  placeholderPath: `M 162 71 L 92 555 L 176 544 L 218 342 L 288 347 L 239 563 L 340 544 L 425 68 L 332 91 L 301 285 L 215 276 L 268 60 L 162 71 Z M 438 536 L 496 310 L 556 299 L 539 550 L 438 536 Z M 502 232 Q 514 204 543 199 Q 585 199 572 234 Q 562 265 528 267 Q 497 267 502 232 Z M 711 101 L 711 562 Q 830 435 861 381 Q 931 553 990 572 Q 988 293 1090 122 L 1039 79 Q 932 356 947 411 L 877 278 Q 785 411 759 407 L 782 65 L 711 101 Z M 1073 472 Q 1083 363 1152 364 Q 1250 363 1221 459 Q 1200 546 1140 554 Q 1061 566 1073 472 Z M 1131 509 Q 1169 514 1184 465 Q 1204 407 1156 404 Q 1123 407 1110 448 Q 1095 505 1131 509 Z M 1252 548 L 1280 358 L 1324 358 L 1316 398 Q 1381 358 1432 389 L 1417 433 Q 1359 399 1311 445 L 1311 445 L 1289 546 L 1252 548 Z M 1497 99 L 1450 553 L 1510 546 Q 1542 188 1544 144 Q 1515 125 1497 99 Z M 1599 426 Q 1554 467 1575 499 Q 1604 559 1736 535 L 1748 117 L 1700 136 L 1698 398 Q 1645 395 1599 426 Z M 1624 453 Q 1706 407 1704 479 Q 1705 526 1635 504 Q 1587 478 1624 453 Z`,
+  placeholderPath: `M 120 57 L 68 419 L 131 411 L 162 259 L 214 263 L 178 425 L 253 411 L 317 55 L 248 72 L 224 217 L 160 210 L 200 49 L 120 57 Z M 327 405 L 370 236 L 415 228 L 402 415 L 327 405 Z M 375 177 Q 384 157 405 153 Q 437 153 427 179 Q 420 203 395 204 Q 371 204 375 177 Z M 509 96 L 531 424 Q 620 329 643 289 Q 695 418 739 432 C 725 253 770 140 890 70 T 730 110 Q 696 270 708 311 L 655 212 Q 587 311 567 308 L 607 66 L 509 96 Z M 802 357 Q 809 275 861 276 Q 934 275 913 348 Q 897 412 852 418 Q 793 427 802 357 Z M 845 385 Q 874 389 885 352 Q 900 308 864 306 Q 839 308 830 339 Q 819 382 845 385 Z M 936 414 L 957 272 L 989 272 L 983 302 Q 1032 272 1071 295 L 1060 328 Q 1016 303 980 337 L 980 337 L 964 412 L 936 414 Z M 1120 78 L 1084 418 L 1129 412 Q 1153 145 1154 112 Q 1132 98 1120 78 Z M 1195 323 Q 1162 354 1177 377 Q 1199 422 1298 404 L 1307 92 L 1271 106 L 1269 302 Q 1230 300 1195 323 Z M 1215 343 Q 1275 308 1274 362 Q 1274 398 1222 381 Q 1186 361 1215 343 Z`,
   highlightedPath: '',
   decimals: 0,
   zoomFactor: 0.4,
@@ -99,24 +99,24 @@ const renderLoop = async () => {
     direction      \t- opposite path directions create shape fill openings
 
     "c"   - copy svg path to clipboard
-    "v"   - clear/load image url from clipboard (jpg/png)
-              (now: ${state.backgroundImage || 'none'})
+    "w"   - resize path to fit viewscreen
+    "t"   - cycle selected or drawing type (selected: ${
+      state.path[mouse.lastSelectedIndex]
+        ? state.path[mouse.lastSelectedIndex].type
+        : 'n/a'
+    }) (drawing: ${state.drawPointType})
     "z"   - undo
     "y"   - redo
     "q"   - clear everything
     "g"   - toggle grid snap (now ${state.gridSnapOn})
     "d"   - delete selected point
     "a"   - add new point on top of selected
-    "w"   - resize path to fit viewscreen
-    "t"   - cycle selected or point type (selected: ${
-      state.path[mouse.lastSelectedIndex]
-        ? state.path[mouse.lastSelectedIndex].type
-        : 'n/a'
-    }) (drawing: ${state.drawPointType})
     "m"   - toggle showing all path point markers
     "+-" - increase/decrease decimal places used in path (0-5, now ${
       state.decimals
     })
+    "v"   - clear/load image url from clipboard (jpg/png)
+              (now: ${state.backgroundImage || 'none'})
 `
 
   window.datadiv.innerHTML += '\n\n' + state.highlightedPath // window.svgPath.getAttribute('d')
@@ -317,6 +317,8 @@ const handleMouseUp = e => {
     updateHistory()
     return undefined
   }
+
+  updateHistory()
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1196,11 +1198,11 @@ const alertUser = text => {
   alertTimer1 = setTimeout(() => {
     window.alertUser.style.visibility = 'visible'
     window.alertUser.style.opacity = '0'
-  }, 3000)
+  }, 2000)
   alertTimer2 = setTimeout(() => {
     window.alertUser.style.visibility = 'hidden'
     window.alertUser.style.opacity = '0'
-  }, 5000)
+  }, 3000)
 }
 
 // few constants I need
@@ -1225,6 +1227,11 @@ const zoomShape = ({ centerX, centerY, deltaScale }) => {
     if (point.xC !== undefined && point.xC !== null) {
       point.xC = (point.xC - centerX) * multiplier + centerX
       point.yC = (point.yC - centerY) * multiplier + centerY
+    }
+    // types that have 2nd set of coods: xC2 yC2
+    if (point.xC2 !== undefined && point.xC2 !== null) {
+      point.xC2 = (point.xC2 - centerX) * multiplier + centerX
+      point.yC2 = (point.yC2 - centerY) * multiplier + centerY
     }
   }
 }
@@ -1260,6 +1267,11 @@ const panShape = ({ deltaX, deltaY, stop = false }) => {
       if (point.xC !== undefined) {
         point.xC = refPoint.xC + deltaX
         point.yC = refPoint.yC + deltaY
+      }
+      // types that have xC2/yC2
+      if (point.xC2 !== undefined) {
+        point.xC2 = refPoint.xC2 + deltaX
+        point.yC2 = refPoint.yC2 + deltaY
       }
     }
   }
@@ -1303,16 +1315,21 @@ const resizeToFit = (fractionToFill = 0.9) => {
     const point = state.path[i]
     if (point.x)
       state.path[i].x =
-        ((point.x - leftmostPoint) * conversionFactor + leftMargin) << 0
+        (point.x - leftmostPoint) * conversionFactor + leftMargin
     if (point.y)
-      state.path[i].y =
-        ((point.y - topmostPoint) * conversionFactor + topMargin) << 0
+      state.path[i].y = (point.y - topmostPoint) * conversionFactor + topMargin
     if (point.xC)
       state.path[i].xC =
-        ((point.xC - leftmostPoint) * conversionFactor + leftMargin) << 0
+        (point.xC - leftmostPoint) * conversionFactor + leftMargin
     if (point.yC)
       state.path[i].yC =
-        ((point.yC - topmostPoint) * conversionFactor + topMargin) << 0
+        (point.yC - topmostPoint) * conversionFactor + topMargin
+    if (point.xC2)
+      state.path[i].xC2 =
+        (point.xC2 - leftmostPoint) * conversionFactor + leftMargin
+    if (point.yC2)
+      state.path[i].yC2 =
+        (point.yC2 - topmostPoint) * conversionFactor + topMargin
   }
   updateHistory()
 }
@@ -1357,6 +1374,20 @@ const loadInitialPlaceholder = () => {
         isCurved: true
       })
       i += 4
+    }
+    // triple coods
+    if (part === 'C') {
+      state.path.push({
+        type: part,
+        xC: +pathSourceArray[i + 1],
+        yC: +pathSourceArray[i + 2],
+        xC2: +pathSourceArray[i + 3],
+        yC2: +pathSourceArray[i + 4],
+        x: +pathSourceArray[i + 5],
+        y: +pathSourceArray[i + 6],
+        isCurved: true
+      })
+      i += 6
     }
     if (part === 'Z') {
       state.path.push({ type: 'Z' })
