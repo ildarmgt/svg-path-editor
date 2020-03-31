@@ -153,8 +153,22 @@ const handleMouseDown = e => {
         type: state.drawPointType,
         x: state.path[previousM].x,
         y: state.path[previousM].y,
-        xC: state.path[previousM].x,
-        yC: state.path[previousM].y,
+        xC:
+          isDoublePointType(state.drawPointType) ||
+          isTripplePointType(state.drawPointType)
+            ? state.path[previousM].x
+            : undefined,
+        yC:
+          isDoublePointType(state.drawPointType) ||
+          isTripplePointType(state.drawPointType)
+            ? state.path[previousM].y
+            : undefined,
+        xC2: isTripplePointType(state.drawPointType)
+          ? state.path[previousM].x
+          : undefined,
+        yC2: isTripplePointType(state.drawPointType)
+          ? state.path[previousM].y
+          : undefined,
         isCurved: false
       }
       state.path[state.activePoint + 1] = { type: 'Z' }
@@ -163,6 +177,7 @@ const handleMouseDown = e => {
     // if this point is right after M, it is not even a line so erase both
     if (
       // state.path[len - 1].type === 'Z' &&
+      state.path[len - 2] &&
       state.path[len - 2].type === 'M'
     ) {
       state.path.pop()
@@ -198,10 +213,18 @@ const handleMouseUp = e => {
   updateMousePosition(e, { up: true })
 
   const selectedPoint = state.path[mouse.lastSelectedIndex]
-  const isControlPointNearby = selectedPoint
-    ? (mouse.x - selectedPoint.xC) ** 2 + (mouse.y - selectedPoint.yC) ** 2 <
-      state.selectDistance ** 2
-    : null
+  const isControlPointNearby =
+    selectedPoint && selectedPoint.xC !== undefined
+      ? (mouse.x - selectedPoint.xC) ** 2 + (mouse.y - selectedPoint.yC) ** 2 <
+        state.selectDistance ** 2
+      : null
+
+  const isControlPoint2Nearby =
+    selectedPoint && selectedPoint.xC2 !== undefined
+      ? (mouse.x - selectedPoint.xC2) ** 2 +
+          (mouse.y - selectedPoint.yC2) ** 2 <
+        state.selectDistance ** 2
+      : null
 
   const isDrawing =
     state.activePoint !== null
@@ -229,7 +252,8 @@ const handleMouseUp = e => {
   /* ------------------- start or continue creating point ------------------- */
   if (
     (!selectedPoint || isDrawing) && // nothing is selected outside drawing mode
-    (!isControlPointNearby || isDrawing) && // not near control point outside drawing mode
+    (!isControlPointNearby || isDrawing) && // to avoid starting to draw in edit mode
+    (!isControlPoint2Nearby || isDrawing) && // to avoid starting to draw in edit mode
     button === LEFT_MOUSE_BUTTON && // lmb used
     !mouse.right.down && // rmb not down
     mouse.nearby.length === 0 // no nearby points
@@ -244,8 +268,18 @@ const handleMouseUp = e => {
       type: state.drawPointType,
       x: mouse.x,
       y: mouse.y,
-      xC: null,
-      yC: null,
+      xC:
+        isDoublePointType(state.drawPointType) ||
+        isTripplePointType(state.drawPointType)
+          ? null
+          : undefined,
+      yC:
+        isDoublePointType(state.drawPointType) ||
+        isTripplePointType(state.drawPointType)
+          ? null
+          : undefined,
+      xC2: isTripplePointType(state.drawPointType) ? null : undefined,
+      yC2: isTripplePointType(state.drawPointType) ? null : undefined,
       isCurved: false
     })
     state.activePoint = state.path.length - 1
@@ -259,7 +293,7 @@ const handleMouseUp = e => {
 
   if (!mouse.left.down && state.activePoint !== null && !isDrawing) {
     console.log('MOUSE UP: cancel active moving point on left click')
-    // remove it from active index and take off edit mode & filled render ok
+    // remove it from active index
     state.activePoint = null // remove from active but keep it in lastSelected as last selection
     handleMouseMove(e, { up: true })
     updateHistory()
@@ -272,6 +306,7 @@ const handleMouseUp = e => {
     !mouse.left.down && // left mouse button not down
     state.activePoint === null && // no actively moving point
     !isControlPointNearby && // no control point nearby
+    !isControlPoint2Nearby && // no control point 2 nearby
     mouse.nearby.length === 0 && // no points nearby
     !isDrawing // edit mode (not drawing)
   ) {
@@ -383,28 +418,34 @@ const handleMouseMove = (e, { down = false, up = false } = {}) => {
     active.y = mouse.y
   }
 
-  if (active && isDoublePointType(active.type)) {
-    // mouse dragged far enough?
-    // const wasLeftDraggedFarEnough =
-    //   (mouse.x - mouse.left.from.x) ** 2 + (mouse.y - mouse.left.from.y) ** 2 >
-    //   state.selectDistance ** 2
-
+  if (
+    active &&
+    (isDoublePointType(active.type) || isTripplePointType(active.type))
+  ) {
     // move active end-point to mouse location
-    // if (wasLeftDraggedFarEnough) {
     active.x = mouse.x
     active.y = mouse.y
-    // }
 
-    // if just created, set control point to current location
+    // if just created, set control point to starting location
     if (active.xC === null) {
       active.xC = mouse.x
       active.yC = mouse.y
     }
 
-    // if is not curved move control point to specific point
+    // if just created, set control point to starting location
+    if (active.xC2 === null) {
+      active.xC2 = mouse.x
+      active.yC2 = mouse.y
+    }
+
+    // while drawing, if is not curved move control point to specific point
     if (isDrawing && !mouse.left.down && !active.isCurved) {
       active.xC = mouse.x
       active.yC = mouse.y
+      if (isTripplePointType(active.type)) {
+        active.xC2 = mouse.x
+        active.yC2 = mouse.y
+      }
     }
 
     // if drawing && not just created and lmb is down, curve it by freezing control point to lmb's from xy
@@ -413,6 +454,10 @@ const handleMouseMove = (e, { down = false, up = false } = {}) => {
       if (wasLeftDraggedFarEnough) {
         active.xC = mouse.left.from.x
         active.yC = mouse.left.from.y
+        if (isTripplePointType(active.type)) {
+          active.xC2 = active.xC
+          active.yC2 = active.yC
+        }
         active.isCurved = true
       }
     }
@@ -423,7 +468,7 @@ const handleMouseMove = (e, { down = false, up = false } = {}) => {
     }
   }
 
-  /* ----------------------- for control points in edit mode ------------------- */
+  /* ----------------------- for selected points in edit mode ------------------- */
 
   // while LMB down, move selected control point instead of selected point
   if (
@@ -433,7 +478,7 @@ const handleMouseMove = (e, { down = false, up = false } = {}) => {
     !isDrawing && // when in edit mode, not drawing
     selected && // a point needs to be selected to show control point
     mouse.left.down && // lmb needs to be already down
-    isDoublePointType(selected.type) // point needs to be of type to have control point
+    (isDoublePointType(selected.type) || isTripplePointType(selected.type)) // point needs to be of type to have control point
   ) {
     // loose proximity of mouse to control point
     const isControlPointAroundMouse =
@@ -443,8 +488,9 @@ const handleMouseMove = (e, { down = false, up = false } = {}) => {
     const isControlPointNearMouse =
       (mouse.x - selected.xC) ** 2 + (mouse.y - selected.yC) ** 2 <
       4 * state.selectDistance ** 2
+
     // mouse closer to end point than control
-    const isMouseCloserToEndPoint =
+    const isMouseCloserToEndPointThanControlPoint =
       (mouse.x - selected.xC) ** 2 + (mouse.y - selected.yC) ** 2 >
       (mouse.x - selected.x) ** 2 + (mouse.y - selected.y) ** 2
     // is control point near endpoint
@@ -452,21 +498,62 @@ const handleMouseMove = (e, { down = false, up = false } = {}) => {
       (selected.x - selected.xC) ** 2 + (selected.y - selected.yC) ** 2 <
       4 * state.selectDistance ** 2
 
-    // make control point follow mouse
+    const isControlPoint2NearEndPoint =
+      selected.xC2 === null || selected.xC2 === undefined
+        ? false
+        : (selected.x - selected.xC2) ** 2 + (selected.y - selected.yC2) ** 2 <
+          4 * state.selectDistance ** 2
+    const isControlPoint2AroundMouse =
+      (mouse.x - selected.xC2) ** 2 + (mouse.y - selected.yC2) ** 2 <
+      100 * state.selectDistance ** 2
+    const isControlPoint2NearMouse =
+      selected.xC2 === null || selected.xC2 === undefined
+        ? false
+        : (mouse.x - selected.xC2) ** 2 + (mouse.y - selected.yC2) ** 2 <
+          4 * state.selectDistance ** 2
+    const isControlPoint2CloserThan1 =
+      selected.xC2 === null || selected.xC2 === undefined
+        ? false
+        : (mouse.x - selected.xC) ** 2 + (mouse.y - selected.yC) ** 2 >=
+          (mouse.x - selected.xC2) ** 2 + (mouse.y - selected.yC2) ** 2
+    // mouse closer to end point than control
+    const isMouseCloserToEndPointThanControlPoint2 =
+      selected.xC2 === null || selected.xC2 === undefined
+        ? false
+        : (mouse.x - selected.xC2) ** 2 + (mouse.y - selected.yC2) ** 2 >
+          (mouse.x - selected.x) ** 2 + (mouse.y - selected.y) ** 2
+
+    // make control point (s) follow mouse
     if (
+      isControlPoint2CloserThan1 &&
+      isControlPoint2AroundMouse &&
+      !isMouseCloserToEndPointThanControlPoint2
+    ) {
+      selected.xC2 = mouse.x
+      selected.yC2 = mouse.y
+      selected.isCurved = true // dragging control should render it curved
+    } else if (
+      !isControlPoint2CloserThan1 && // if there's no 2nd control point or it's further
       isControlPointAroundMouse && // if it's even remotely close to mouse
-      !isMouseCloserToEndPoint // if mouse is closer to control point than end point
+      !isMouseCloserToEndPointThanControlPoint // if mouse is closer to control point than end point
     ) {
       selected.xC = mouse.x
       selected.yC = mouse.y
       selected.isCurved = true // dragging control should render it curved
     }
-    // if mouse is point is near both control point AND end point
-    // move control point on top of end point to convert to basic line
+
     if (isControlPointNearMouse && isControlPointNearEndPoint) {
+      // if mouse is point is near both control point AND end point
+      // move control point on top of end point to convert to basic line
       selected.xC = selected.x
       selected.yC = selected.y
-      selected.isCurved = false
+      if (selected.type === 'Q') selected.isCurved = false
+    }
+    if (isControlPoint2NearMouse && isControlPoint2NearEndPoint) {
+      // if mouse is point is near both control point AND end point
+      // move control point on top of end point to convert to basic line
+      selected.xC2 = selected.x
+      selected.yC2 = selected.y
     }
   }
 
@@ -583,6 +670,7 @@ const updateHighlightedPoint = () => {
 const updateSelectedPoint = () => {
   const circle = window.selectionCircle
   const controlCircle = window.controlCircle
+  const controlCircle2 = window.controlCircle2
   const controlPath1 = window.controlPath1
   const controlPath2 = window.controlPath2
   const selectedPoint = state.path[mouse.lastSelectedIndex]
@@ -606,10 +694,11 @@ const updateSelectedPoint = () => {
     controlCircle.setAttribute('cx', selectedPoint.xC)
     controlCircle.setAttribute('cy', selectedPoint.yC)
     controlCircle.setAttribute('r', state.pointRadius)
+
     // path to point before and after
     const beforeSelectedPoint = state.path[mouse.lastSelectedIndex - 1]
-    let controlPath1Value = ''
-    let controlPath2Value = ''
+    let controlPath1Value = '',
+      controlPath2Value = ''
     if (beforeSelectedPoint)
       controlPath1Value += `M ${selectedPoint.xC} ${selectedPoint.yC} L ${beforeSelectedPoint.x} ${beforeSelectedPoint.y}`
 
@@ -621,6 +710,35 @@ const updateSelectedPoint = () => {
     controlCircle.setAttribute('r', 0)
     controlPath1.setAttribute('d', '')
     controlPath2.setAttribute('d', '')
+  }
+
+  // the control point and lines for 2 extra control points needed
+  if (
+    mouse.lastSelectedIndex !== null &&
+    selectedPoint &&
+    isTripplePointType(selectedPoint.type)
+  ) {
+    // control point (invisible mid-point)
+    controlCircle.setAttribute('cx', selectedPoint.xC)
+    controlCircle.setAttribute('cy', selectedPoint.yC)
+    controlCircle.setAttribute('r', state.pointRadius)
+    controlCircle2.setAttribute('cx', selectedPoint.xC2)
+    controlCircle2.setAttribute('cy', selectedPoint.yC2)
+    controlCircle2.setAttribute('r', state.pointRadius)
+
+    // path to point before and after
+    const beforeSelectedPoint = state.path[mouse.lastSelectedIndex - 1]
+    let controlPath1Value = '',
+      controlPath2Value = ''
+    if (beforeSelectedPoint)
+      controlPath1Value += `M ${selectedPoint.xC} ${selectedPoint.yC} L ${beforeSelectedPoint.x} ${beforeSelectedPoint.y}`
+
+    controlPath2Value += `M ${selectedPoint.xC2} ${selectedPoint.yC2} L ${selectedPoint.x} ${selectedPoint.y}`
+    controlPath1.setAttribute('d', controlPath1Value)
+    controlPath2.setAttribute('d', controlPath2Value)
+  } else {
+    // hide control circle and path
+    controlCircle2.setAttribute('r', 0)
   }
 }
 
@@ -683,6 +801,13 @@ const makePath = () => {
       thisSegment += `${point.type} ${d(point.xC)} ${d(point.yC)} ${d(
         point.x
       )} ${d(point.y)} `
+    //
+    // for the rest xy and xCyC point types draw both points
+    else if (isTripplePointType(point.type))
+      thisSegment += `${point.type} ${d(point.xC)} ${d(point.yC)} ${d(
+        point.xC2
+      )} ${d(point.yC2)} ${d(point.x)} ${d(point.y)} `
+    //
     // warn if mistake was made
     else console.warn('unknown point type:', i, point)
     //
@@ -864,6 +989,8 @@ const handleKeyDown = e => {
       if (isDoublePointType(copyPoint.type)) {
         copyPoint.xC = copyPoint.x
         copyPoint.yC = copyPoint.y
+        copyPoint.xC2 = copyPoint.x
+        copyPoint.yC2 = copyPoint.y
         copyPoint.isCurved = false
       }
       state.path.splice(mouse.lastSelectedIndex, 0, copyPoint)
@@ -950,22 +1077,35 @@ const handleKeyDown = e => {
       state.activePoint !== null
         ? state.path.length - 1 === state.activePoint
         : false
-    const types = ['L', 'Q', 'S', 'T']
+    const types = ['L', 'Q', 'S', 'T', 'C']
     const describe = {
       L: 'L: Line point set',
       Q: 'Q: Quadratic bezier curve point set',
       S: 'S: Smooth curve point set',
-      T: 'T: Smooth quadratic bezier curve point set'
+      T: 'T: Smooth quadratic bezier curve point set',
+      C: 'C: Cubic bezier curve point set'
     }
 
     if (!isDrawing && selected) {
       selected.type = types[(types.indexOf(selected.type) + 1) % types.length]
       alertUser('type ' + describe[selected.type])
+      // C
+      if (isTripplePointType(selected.type)) {
+        selected.xC = selected.xC || selected.x
+        selected.yC = selected.yC || selected.y
+        selected.xC2 = selected.xC2 || selected.x
+        selected.yC2 = selected.yC2 || selected.y
+        selected.isCurved = selected.isCurved || false
+        updateHistory()
+        return undefined
+      }
       // Q,S
       if (isDoublePointType(selected.type)) {
         selected.xC = selected.xC || selected.x
         selected.yC = selected.yC || selected.y
         selected.isCurved = selected.isCurved || false
+        selected.xC2 = undefined
+        selected.yC2 = undefined
         updateHistory()
         return undefined
       }
@@ -973,12 +1113,14 @@ const handleKeyDown = e => {
       if (isSinglePointType(selected.type)) {
         selected.xC = undefined
         selected.yC = undefined
+        selected.xC2 = undefined
+        selected.yC2 = undefined
         selected.isCurved = undefined
         updateHistory()
         return undefined
       }
     }
-
+    // when drawing or nothing is selected to edit, change draw mode
     if (!selected || isDrawing) {
       state.drawPointType =
         types[(types.indexOf(state.drawPointType) + 1) % types.length]
@@ -991,7 +1133,7 @@ const handleKeyDown = e => {
 const isSelectableType = v => ['Q', 'T', 'S', 'L', 'C'].indexOf(v) > -1
 const isSinglePointType = v => ['M', 'T', 'L'].indexOf(v) > -1
 const isDoublePointType = v => ['Q', 'S'].indexOf(v) > -1
-// const isTripplePointType = v => v === 'C'
+const isTripplePointType = v => v === 'C'
 
 // load grid style
 const checkGridSnap = () => {

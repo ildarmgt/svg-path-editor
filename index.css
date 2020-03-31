@@ -31,7 +31,8 @@ svg #selectionCircle {
   fill: var(--selectedColor);
 }
 
-svg #controlCircle {
+svg #controlCircle,
+svg #controlCircle2 {
   fill: var(--controlColor);
 }
 
