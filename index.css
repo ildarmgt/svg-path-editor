@@ -1,10 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500&display=swap');
+
 :root {
+  font-family: 'Quicksand', sans-serif;
   --fillColor: #2233cc22;
   --highlightedColor: #007d8688;
   --selectedColor: #33ff0088;
   --strokeColor: #11223399;
   --controlColor: #ff330088;
+  --controlColorLine: #ff330066;
   --backgroundColor: darkturquoise;
+  --gridColor: #0000001d;
+  --highlightPointColor: #26865181;
+  --textColor: #22334455;
+
+  --fontSizeHorizontal: calc(2 * (0.5vh + 0.5vw));
+  --fontSizeVertical: calc(2.5 * (0.5vh + 0.5vw));
+  --fontSizeFixed: 17px;
+  --fontSize: var(--fontSizeFixed);
 }
 
 svg path {
@@ -23,10 +35,10 @@ svg #controlCircle {
   fill: var(--controlColor);
 }
 
-svg #controlPath {
-  stroke: var(--controlColor);
-  stroke-dasharray: 4;
-  stroke-width: 1;
+svg #controlPath1,
+svg #controlPath2 {
+  stroke: var(--controlColorLine);
+  stroke-width: 2;
 }
 
 body,
@@ -35,9 +47,16 @@ html {
   padding: 0;
   width: 100%;
   height: 100%;
-  font-family: sans-serif;
   font-weight: normal;
-  color: #22334477;
+  color: var(--textColor);
+}
+
+body,
+html,
+div,
+span {
+  font-size: var(--fontSize);
+  line-height: 1;
 }
 
 svg,
@@ -53,7 +72,7 @@ svg,
 }
 
 #datadiv span {
-  color: #26865181;
+  color: var(--highlightPointColor);
   font-weight: bold;
 }
 
@@ -66,17 +85,23 @@ html {
   -webkit-user-select: none;
 }
 
+#transformedPattern rect {
+  stroke: var(--gridColor);
+  fill: none;
+}
+
 #backgroundImage {
   opacity: 0.3;
   background-color: var(--backgroundColor);
 }
 
 #alertUser {
+  box-sizing: border-box;
   visibility: hidden;
   opacity: 0;
   --alertWidth: 300px;
   font-size: calc(var(--alertWidth) / 12);
-  min-width: var(--alertWidth);
+  width: var(--alertWidth);
   margin-left: calc(-1 * var(--alertWidth) / 2);
   background-color: #333;
   color: #fff;
@@ -88,4 +113,16 @@ html {
   left: 50%;
   bottom: calc(var(--alertWidth) / 10);
   transition: opacity 1s;
+}
+
+@media screen and (min-aspect-ratio: 10/9) and (min-height: calc(1rem * 40)) {
+  :root {
+    --fontSize: var(--fontSizeHorizontal);
+  }
+}
+
+@media screen and (max-aspect-ratio: 10/9) and (min-height: calc(1rem * 40)) {
+  :root {
+    --fontSize: var(--fontSizeVertical);
+  }
 }

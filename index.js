@@ -6,12 +6,18 @@ const stateInitialize = {
   framesPerSecond: 24,
   strokeWidth: 3,
   gridSnapSize: 10,
-  gridSnapOn: false,
+  gridSnapOn: true,
   selectDistance: 10,
+  pointRadius: 6,
   backgroundImage:
     'https://cdn.pixabay.com/photo/2018/07/14/07/58/cat-3537115_960_720.jpg',
   placeholderPath: `M 162 71 L 92 555 L 176 544 L 218 342 L 288 347 L 239 563 L 340 544 L 425 68 L 332 91 L 301 285 L 215 276 L 268 60 L 162 71 Z M 438 536 L 496 310 L 556 299 L 539 550 L 438 536 Z M 502 232 Q 514 204 543 199 Q 585 199 572 234 Q 562 265 528 267 Q 497 267 502 232 Z M 711 101 L 711 562 Q 830 435 861 381 Q 931 553 990 572 Q 988 293 1090 122 L 1039 79 Q 932 356 947 411 L 877 278 Q 785 411 759 407 L 782 65 L 711 101 Z M 1073 472 Q 1083 363 1152 364 Q 1250 363 1221 459 Q 1200 546 1140 554 Q 1061 566 1073 472 Z M 1131 509 Q 1169 514 1184 465 Q 1204 407 1156 404 Q 1123 407 1110 448 Q 1095 505 1131 509 Z M 1252 548 L 1280 358 L 1324 358 L 1316 398 Q 1381 358 1432 389 L 1417 433 Q 1359 399 1311 445 L 1311 445 L 1289 546 L 1252 548 Z M 1497 99 L 1450 553 L 1510 546 Q 1542 188 1544 144 Q 1515 125 1497 99 Z M 1599 426 Q 1554 467 1575 499 Q 1604 559 1736 535 L 1748 117 L 1700 136 L 1698 398 Q 1645 395 1599 426 Z M 1624 453 Q 1706 407 1704 479 Q 1705 526 1635 504 Q 1587 478 1624 453 Z`,
-  highlightedPath: ''
+  highlightedPath: '',
+  decimals: 0,
+  zoomFactor: 0.4,
+  drawPointType: 'Q',
+  showAllPointMarkers: true,
+  fillPath: true
 }
 
 const mouseInitialize = {
@@ -39,6 +45,7 @@ const mouseInitialize = {
 
 let mouse, state
 
+// initialize state and app
 const initialize = () => {
   // reset mouse and state
   mouse = JSON.parse(JSON.stringify(mouseInitialize))
@@ -49,14 +56,19 @@ const initialize = () => {
   window.addEventListener('mousedown', handleMouseDown)
   window.addEventListener('mouseup', handleMouseUp)
   window.addEventListener('keydown', handleKeyDown)
+  window.addEventListener('wheel', handleMouseWheel, { passive: false })
 
-  // set to fill paths and show strokes
-  styleToFillShapes(true)
+  // set styles using js state
+  setJsBasedStyles()
 
+  // initial empty history
   updateHistory()
 
-  initialImage()
-  loadBackgroundImage(state.backgroundImage)
+  // hi world shape as demonstration
+  loadInitialPlaceholder()
+
+  // load placeholder image as demonstration
+  loadBackgroundImage(state.backgroundImage, true)
 
   // start rendering
   renderLoop()
@@ -78,30 +90,40 @@ const renderLoop = async () => {
 
   // keep printing path text on top of svg
   window.datadiv.innerHTML = '\n'
-  window.datadiv.innerHTML += '    left click \t\t- to start drawing\n'
-  window.datadiv.innerHTML += '    left drag \t\t- to curve while drawing\n'
-  window.datadiv.innerHTML +=
-    '    right click \t\t- to cancel selection or complete shape \n'
-  window.datadiv.innerHTML += '    left click points \t- to edit points\n'
-  window.datadiv.innerHTML +=
-    '    direction \t\t- opposite directions to create openings\n'
-  window.datadiv.innerHTML +=
-    '    curve or line \t- move red control dot to edit curve or move onto green to make into a line\n\n'
-  window.datadiv.innerHTML += '    "c" to copy svg path to clipboard\n'
-  window.datadiv.innerHTML += `    "v" to clear/load image url from clipboard (jpg/png) (now: ${state.backgroundImage ||
-    'none'})\n`
-  window.datadiv.innerHTML += '    "z" to undo\n'
-  window.datadiv.innerHTML += '    "y" to redo\n'
-  window.datadiv.innerHTML += `    "q" to clear everything\n`
-  window.datadiv.innerHTML += `    "g" to turn grid snap on (now ${state.gridSnapOn})\n`
+  window.datadiv.innerHTML += `
+    left click      \t- to start drawing
+    left drag       \t- to curve while drawing
+    right click     \t- to cancel selection or complete shape
+    right drag      \t- pan/shift path
+    mouse wheel     \t- scale path up/down around mouse ("w" to zoom fit)
+    direction      \t- opposite path directions create shape fill openings
 
-  window.datadiv.innerHTML += '    "d" to delete selected point\n'
-  window.datadiv.innerHTML += '    "a" to add new point on top of selected\n'
-  window.datadiv.innerHTML += '    "w" to resize path to fit viewscreen\n'
+    "c"   - copy svg path to clipboard
+    "v"   - clear/load image url from clipboard (jpg/png)
+              (now: ${state.backgroundImage || 'none'})
+    "z"   - undo
+    "y"   - redo
+    "q"   - clear everything
+    "g"   - toggle grid snap (now ${state.gridSnapOn})
+    "d"   - delete selected point
+    "a"   - add new point on top of selected
+    "w"   - resize path to fit viewscreen
+    "t"   - cycle selected or point type (selected: ${
+      state.path[mouse.lastSelectedIndex]
+        ? state.path[mouse.lastSelectedIndex].type
+        : 'n/a'
+    }) (drawing: ${state.drawPointType})
+    "m"   - toggle showing all path point markers
+    "+-" - increase/decrease decimal places used in path (0-5, now ${
+      state.decimals
+    })
+`
 
   window.datadiv.innerHTML += '\n\n' + state.highlightedPath // window.svgPath.getAttribute('d')
 
-  // window.focus() // keep getting focus for keyboard events
+  // keep getting focus for keyboard events
+  // (this works but makes it near impossible to edit codepen)
+  // window.focus()
 
   // loop forever
   window.requestAnimationFrame(() => renderLoop())
@@ -112,12 +134,12 @@ const renderLoop = async () => {
 /* -------------------------------------------------------------------------- */
 
 const handleMouseDown = e => {
-  // const { button } = e
+  const { button } = e
   handleMouseMove(e, { down: true })
 
   /* ----------------- cancel drawing point via right click ----------------- */
 
-  if (mouse.right.down) {
+  if (button === RIGHT_MOUSE_BUTTON) {
     let len = state.path.length
     console.log('MOUSE DOWN: cancel drawing point via right click')
 
@@ -128,11 +150,11 @@ const handleMouseDown = e => {
       while ((previousM--, state.path[previousM].type !== 'M'));
 
       state.path[state.activePoint] = {
-        type: 'Q',
+        type: state.drawPointType,
         x: state.path[previousM].x,
         y: state.path[previousM].y,
-        xQ: state.path[previousM].x,
-        yQ: state.path[previousM].y,
+        xC: state.path[previousM].x,
+        yC: state.path[previousM].y,
         isCurved: false
       }
       state.path[state.activePoint + 1] = { type: 'Z' }
@@ -177,7 +199,7 @@ const handleMouseUp = e => {
 
   const selectedPoint = state.path[mouse.lastSelectedIndex]
   const isControlPointNearby = selectedPoint
-    ? (mouse.x - selectedPoint.xQ) ** 2 + (mouse.y - selectedPoint.yQ) ** 2 <
+    ? (mouse.x - selectedPoint.xC) ** 2 + (mouse.y - selectedPoint.yC) ** 2 <
       state.selectDistance ** 2
     : null
 
@@ -219,11 +241,11 @@ const handleMouseUp = e => {
     }
     // either way makes line to next point AND becomes the active point
     state.path.push({
-      type: 'Q',
+      type: state.drawPointType,
       x: mouse.x,
       y: mouse.y,
-      xQ: null,
-      yQ: null,
+      xC: null,
+      yC: null,
       isCurved: false
     })
     state.activePoint = state.path.length - 1
@@ -263,6 +285,46 @@ const handleMouseUp = e => {
 }
 
 /* -------------------------------------------------------------------------- */
+/*                                 mouse wheel                                */
+/* -------------------------------------------------------------------------- */
+
+let mouseWheelTimer = null,
+  delayWheel = 50,
+  historyTimer = null,
+  delayHistory = 2000
+
+const handleMouseWheel = e => {
+  const { deltaY } = e
+
+  // zoom in or out based on direction of wheel movement
+  const attemptZooming = deltaY => {
+    zoomShape({
+      centerX: mouse.x,
+      centerY: mouse.y,
+      deltaScale: deltaY < 0 ? state.zoomFactor : -state.zoomFactor
+    })
+  }
+
+  // call zoom function & mark timer as busy until after delay
+  if (!mouseWheelTimer) {
+    attemptZooming(deltaY)
+    mouseWheelTimer = setTimeout(() => {
+      mouseWheelTimer = null
+    }, delayWheel)
+  }
+
+  // try not to back up zoom states often
+  if (!historyTimer) {
+    historyTimer = setTimeout(() => {
+      updateHistory()
+      historyTimer = null
+    }, delayHistory)
+  }
+  // ideally prevent embedded page scrolling
+  e.preventDefault()
+}
+
+/* -------------------------------------------------------------------------- */
 /*                                mouse moving                                */
 /* -------------------------------------------------------------------------- */
 
@@ -276,6 +338,20 @@ const handleMouseMove = (e, { down = false, up = false } = {}) => {
     checkNearbyVertex()
     // return undefined
   }
+
+  const wasLeftDraggedFarEnough =
+    mouse.left.from.x === null
+      ? false
+      : (mouse.x - mouse.left.from.x) ** 2 +
+          (mouse.y - mouse.left.from.y) ** 2 >
+        state.selectDistance ** 2
+
+  const wasRightDraggedFarEnough =
+    mouse.right.from.x === null
+      ? false
+      : (mouse.x - mouse.right.from.x) ** 2 +
+          (mouse.y - mouse.right.from.y) ** 2 >
+        state.selectDistance ** 2
 
   // if there's an active point keep updating it based on mouse pos
   const active = state.path[state.activePoint]
@@ -291,6 +367,8 @@ const handleMouseMove = (e, { down = false, up = false } = {}) => {
 
   /* ------------------------- actively moving points ------------------------- */
 
+  const isDrawing = active ? state.path.length - 1 === state.activePoint : false
+
   // if moving last point before Z, move M before Z as well
   // because last point connects to M on cancel
   if (active && isNextZ && previousM) {
@@ -299,48 +377,42 @@ const handleMouseMove = (e, { down = false, up = false } = {}) => {
   }
 
   // move active simple x/y points to mouse location
-  if (active && active.type === 'L') {
+  if (active && isSinglePointType(active.type)) {
     // active.type = active.type
     active.x = mouse.x
     active.y = mouse.y
   }
 
-  if (active && active.type === 'Q') {
-    const isDrawing = state.path.length - 1 === state.activePoint
-
+  if (active && isDoublePointType(active.type)) {
     // mouse dragged far enough?
-    // const wasDraggedFarEnough =
+    // const wasLeftDraggedFarEnough =
     //   (mouse.x - mouse.left.from.x) ** 2 + (mouse.y - mouse.left.from.y) ** 2 >
     //   state.selectDistance ** 2
 
     // move active end-point to mouse location
-    // if (wasDraggedFarEnough) {
+    // if (wasLeftDraggedFarEnough) {
     active.x = mouse.x
     active.y = mouse.y
     // }
 
     // if just created, set control point to current location
-    if (active.xQ === null) {
-      active.xQ = mouse.x
-      active.yQ = mouse.y
+    if (active.xC === null) {
+      active.xC = mouse.x
+      active.yC = mouse.y
     }
 
     // if is not curved move control point to specific point
     if (isDrawing && !mouse.left.down && !active.isCurved) {
-      active.xQ = mouse.x
-      active.yQ = mouse.y
+      active.xC = mouse.x
+      active.yC = mouse.y
     }
 
-    // if drawing && not just created and lmb is down, curve it by setting control point to lmb's from
+    // if drawing && not just created and lmb is down, curve it by freezing control point to lmb's from xy
     if (isDrawing && mouse.left.down) {
-      // to avoid mistakes, make sure it was dragged far enough during drawing
-      const wasDraggedFarEnough =
-        (mouse.x - mouse.left.from.x) ** 2 +
-          (mouse.y - mouse.left.from.y) ** 2 >
-        state.selectDistance ** 2
-      if (wasDraggedFarEnough) {
-        active.xQ = mouse.left.from.x
-        active.yQ = mouse.left.from.y
+      // to avoid mistakes in drawing mode, make sure it was dragged far enough during drawing
+      if (wasLeftDraggedFarEnough) {
+        active.xC = mouse.left.from.x
+        active.yC = mouse.left.from.y
         active.isCurved = true
       }
     }
@@ -351,46 +423,81 @@ const handleMouseMove = (e, { down = false, up = false } = {}) => {
     }
   }
 
-  /* ------------- for selected but not actively moving points ------------- */
+  /* ----------------------- for control points in edit mode ------------------- */
 
-  // if this is moving selected control point instead of selected point
+  // while LMB down, move selected control point instead of selected point
   if (
-    !up &&
-    !down &&
-    !active &&
-    selected &&
-    mouse.left.down &&
-    selected.type === 'Q'
+    !up && // only dragging counts
+    !down && // only dragging counts
+    !active && // when end point is not being dragged
+    !isDrawing && // when in edit mode, not drawing
+    selected && // a point needs to be selected to show control point
+    mouse.left.down && // lmb needs to be already down
+    isDoublePointType(selected.type) // point needs to be of type to have control point
   ) {
-    // loose proximity to control point
-    const isControlPointNearMouse =
-      (mouse.x - selected.xQ) ** 2 + (mouse.y - selected.yQ) ** 2 <
+    // loose proximity of mouse to control point
+    const isControlPointAroundMouse =
+      (mouse.x - selected.xC) ** 2 + (mouse.y - selected.yC) ** 2 <
       100 * state.selectDistance ** 2
+    // tight proximity of mouse to control point
+    const isControlPointNearMouse =
+      (mouse.x - selected.xC) ** 2 + (mouse.y - selected.yC) ** 2 <
+      4 * state.selectDistance ** 2
     // mouse closer to end point than control
     const isMouseCloserToEndPoint =
-      (mouse.x - selected.xQ) ** 2 + (mouse.y - selected.yQ) ** 2 >
+      (mouse.x - selected.xC) ** 2 + (mouse.y - selected.yC) ** 2 >
       (mouse.x - selected.x) ** 2 + (mouse.y - selected.y) ** 2
     // is control point near endpoint
     const isControlPointNearEndPoint =
-      (selected.x - selected.xQ) ** 2 + (selected.y - selected.yQ) ** 2 <
-      state.selectDistance ** 2
+      (selected.x - selected.xC) ** 2 + (selected.y - selected.yC) ** 2 <
+      4 * state.selectDistance ** 2
 
-    // make control point curve by following mouse
+    // make control point follow mouse
     if (
-      isControlPointNearMouse &&
-      !isControlPointNearEndPoint &&
-      !isMouseCloserToEndPoint
+      isControlPointAroundMouse && // if it's even remotely close to mouse
+      !isMouseCloserToEndPoint // if mouse is closer to control point than end point
     ) {
-      selected.xQ = mouse.x
-      selected.yQ = mouse.y
-      selected.isCurved = true
+      selected.xC = mouse.x
+      selected.yC = mouse.y
+      selected.isCurved = true // dragging control should render it curved
     }
-    // make control point snap to endpoint
+    // if mouse is point is near both control point AND end point
+    // move control point on top of end point to convert to basic line
     if (isControlPointNearMouse && isControlPointNearEndPoint) {
-      selected.xQ = selected.x
-      selected.yQ = selected.y
+      selected.xC = selected.x
+      selected.yC = selected.y
       selected.isCurved = false
     }
+  }
+
+  /* ----------------------- right mouse button dragging ---------------------- */
+  if (
+    wasRightDraggedFarEnough && // dragged beyond error margin
+    !active && // no moving pts
+    !isDrawing // not drawing mode
+  ) {
+    if (mouse.right.down) {
+      // pan shape by dragged amount
+      if (mouse.right.from.x !== null) {
+        panShape({
+          deltaX: mouse.x - mouse.right.from.x,
+          deltaY: mouse.y - mouse.right.from.y
+        })
+      }
+      window.datadiv.style.cursor = 'grab'
+    }
+    // try not to back up zoom states often
+    if (!historyTimer) {
+      historyTimer = setTimeout(() => {
+        updateHistory()
+        historyTimer = null
+      }, delayHistory)
+    }
+  }
+  // reset reference positions if done
+  if (up) {
+    panShape({ stop: true })
+    window.datadiv.style.cursor = 'default'
   }
 }
 
@@ -410,8 +517,8 @@ const updateMousePosition = (e, { down = false, up = false } = {}) => {
   }
   if (down && button === RIGHT_MOUSE_BUTTON) {
     mouse.right.down = true
-    mouse.left.from.x = mouse.x
-    mouse.left.from.y = mouse.y
+    mouse.right.from.x = mouse.x
+    mouse.right.from.y = mouse.y
   }
 
   if (up && button === LEFT_MOUSE_BUTTON) {
@@ -466,9 +573,9 @@ const updateHighlightedPoint = () => {
   if (mouse.highlightIndex !== null && state.path[mouse.highlightIndex]) {
     circle.setAttribute('cx', state.path[mouse.highlightIndex].x)
     circle.setAttribute('cy', state.path[mouse.highlightIndex].y)
-    circle.setAttribute('r', '10')
+    circle.setAttribute('r', state.pointRadius)
   } else {
-    circle.setAttribute('r', '0')
+    circle.setAttribute('r', 0)
   }
 }
 
@@ -476,45 +583,51 @@ const updateHighlightedPoint = () => {
 const updateSelectedPoint = () => {
   const circle = window.selectionCircle
   const controlCircle = window.controlCircle
-  const controlPath = window.controlPath
+  const controlPath1 = window.controlPath1
+  const controlPath2 = window.controlPath2
   const selectedPoint = state.path[mouse.lastSelectedIndex]
 
   // actual point selected
   if (mouse.lastSelectedIndex !== null && selectedPoint) {
     circle.setAttribute('cx', selectedPoint.x)
     circle.setAttribute('cy', selectedPoint.y)
-    circle.setAttribute('r', '10')
+    circle.setAttribute('r', state.pointRadius)
   } else {
-    circle.setAttribute('r', '0')
+    circle.setAttribute('r', 0)
   }
 
-  // the control point and lines for Q point
+  // the control point and lines for 1 extra control point needed
   if (
     mouse.lastSelectedIndex !== null &&
     selectedPoint &&
-    selectedPoint.type === 'Q'
+    isDoublePointType(selectedPoint.type)
   ) {
     // control point (invisible mid-point)
-    controlCircle.setAttribute('cx', selectedPoint.xQ)
-    controlCircle.setAttribute('cy', selectedPoint.yQ)
-    controlCircle.setAttribute('r', '10')
+    controlCircle.setAttribute('cx', selectedPoint.xC)
+    controlCircle.setAttribute('cy', selectedPoint.yC)
+    controlCircle.setAttribute('r', state.pointRadius)
     // path to point before and after
     const beforeSelectedPoint = state.path[mouse.lastSelectedIndex - 1]
-    let controlPathValue = ''
+    let controlPath1Value = ''
+    let controlPath2Value = ''
     if (beforeSelectedPoint)
-      controlPathValue += `M ${beforeSelectedPoint.x} ${beforeSelectedPoint.y} L ${selectedPoint.xQ} ${selectedPoint.yQ} `
-    controlPathValue += `M ${selectedPoint.x} ${selectedPoint.y} L ${selectedPoint.xQ} ${selectedPoint.yQ} `
-    controlPath.setAttribute('d', controlPathValue)
+      controlPath1Value += `M ${selectedPoint.xC} ${selectedPoint.yC} L ${beforeSelectedPoint.x} ${beforeSelectedPoint.y}`
+
+    controlPath2Value += `M ${selectedPoint.xC} ${selectedPoint.yC} L ${selectedPoint.x} ${selectedPoint.y}`
+    controlPath1.setAttribute('d', controlPath1Value)
+    controlPath2.setAttribute('d', controlPath2Value)
   } else {
     // hide control circle and path
-    controlCircle.setAttribute('r', '0')
-    controlPath.setAttribute('d', '')
+    controlCircle.setAttribute('r', 0)
+    controlPath1.setAttribute('d', '')
+    controlPath2.setAttribute('d', '')
   }
 }
 
 // set style of paths to fill or not
-const styleToFillShapes = doIt => {
-  if (doIt)
+const setJsBasedStyles = () => {
+  // drawing shapes css
+  if (state.fillPath)
     updateHeader(
       `path { fill: var(--fillColor); stroke-width: ${state.strokeWidth};}`,
       'for_path'
@@ -524,6 +637,21 @@ const styleToFillShapes = doIt => {
       `path { fill: none; stroke-width: ${state.strokeWidth};}`,
       'for_path'
     )
+
+  // control point visual guide lines
+  window.controlPath1.setAttribute('stroke-dasharray', state.pointRadius)
+  window.controlPath2.setAttribute('stroke-dasharray', state.pointRadius)
+  window.controlPath1.setAttribute('stroke-dashoffset', state.pointRadius)
+  window.controlPath2.setAttribute('stroke-dashoffset', state.pointRadius)
+
+  if (state.showAllPointMarkers) {
+    window.markerdot.setAttribute('fill', 'var(--strokeColor)')
+  } else {
+    window.markerdot.setAttribute('fill', 'transparent')
+  }
+
+  // check initial grid setting
+  checkGridSnap()
 }
 
 /* -------------------------------------------------------------------------- */
@@ -536,18 +664,28 @@ const makePath = () => {
 
   for (let i = 0; i < state.path.length; i++) {
     const point = state.path[i]
+    const d = v => v.toFixed(state.decimals)
     let thisSegment = ''
+
     // close shape point
     if (point.type === 'Z') thisSegment += `${point.type} `
-    else if (point.type === 'M' || point.type === 'L')
-      thisSegment += `${point.type} ${point.x} ${point.y} `
-    // types M L so on with 2 coods
-    else if (point.type === 'Q' && point.isCurved)
-      thisSegment += `${point.type} ${point.xQ} ${point.yQ} ${point.x} ${point.y} `
-    // save space by drawing non curved Q as L
-    else if (point.type === 'Q' && !point.isCurved)
-      thisSegment += `L ${point.x} ${point.y} `
-    else console.log('unknown point type:', i, point)
+    //
+    // xy only types
+    else if (isSinglePointType(point.type))
+      thisSegment += `${point.type} ${d(point.x)} ${d(point.y)} `
+    //
+    // for non-curved Q type draw as L (others can't guarantee line shape)
+    else if (!point.isCurved && point.type === 'Q')
+      thisSegment += `L ${d(point.x)} ${d(point.y)} `
+    //
+    // for the rest xy and xCyC point types draw both points
+    else if (isDoublePointType(point.type))
+      thisSegment += `${point.type} ${d(point.xC)} ${d(point.yC)} ${d(
+        point.x
+      )} ${d(point.y)} `
+    // warn if mistake was made
+    else console.warn('unknown point type:', i, point)
+    //
     // update regular path and the one shown inside #datadiv
     // with selected point highlighted with span
     path += thisSegment
@@ -628,12 +766,6 @@ const handleKeyDown = e => {
         state.activePoint = null
         mouse.lastSelectedIndex = null
       }
-      console.log(
-        'undo done',
-        state.historyIndex,
-        'of',
-        state.history.length - 1
-      )
       alertUser(
         `undo activated ${state.historyIndex} / ${state.history.length - 1}`
       )
@@ -661,12 +793,6 @@ const handleKeyDown = e => {
         state.activePoint = state.path.length - 1
         mouse.lastSelectedIndex = state.path.length - 1
       }
-      console.log(
-        'redo done',
-        state.historyIndex,
-        'of',
-        state.history.length - 1
-      )
       alertUser(
         `redo activated ${state.historyIndex} / ${state.history.length - 1}`
       )
@@ -690,32 +816,32 @@ const handleKeyDown = e => {
 
       if (
         pointAfter.type === 'Z' &&
-        pointBefore.type === 'Q' &&
+        isSelectableType(pointBefore.type) &&
         twoPointsBefore.type !== 'M'
       ) {
         pointBefore.x = preceedingM.x
         pointBefore.y = preceedingM.y
-        pointBefore.xQ = preceedingM.x
-        pointBefore.yQ = preceedingM.y
+        pointBefore.xC = preceedingM.x
+        pointBefore.yC = preceedingM.y
         state.path.splice(mouse.lastSelectedIndex, 1)
         console.log('deleted 1 point & updated new final point -  done')
       } else if (pointBefore.type === 'M' && pointAfter.type === 'Z') {
         state.path.splice(mouse.lastSelectedIndex - 1, 3)
-        console.log('deleted Q, M, and Z points dot - done')
+        console.log('deleted regular, M, and Z points dot - done')
       } else if (
         twoPointsAfter &&
         pointBefore.type === 'M' &&
         twoPointsAfter.type === 'Z'
       ) {
         state.path.splice(mouse.lastSelectedIndex - 1, 4)
-        console.log('deleted Q, M, and Z points line - done')
+        console.log('deleted regular, M, and Z points line - done')
       } else if (
         twoPointsBefore &&
         twoPointsBefore.type === 'M' &&
         pointAfter.type === 'Z'
       ) {
         state.path.splice(mouse.lastSelectedIndex - 2, 4)
-        console.log('deleted 2xQ, M, and Z points not to leave a dot - done')
+        console.log('deleted 2xC, M, and Z points not to leave a dot - done')
       } else {
         state.path.splice(mouse.lastSelectedIndex, 1)
         console.log('deleted 1 point - done')
@@ -735,9 +861,9 @@ const handleKeyDown = e => {
     ) {
       const selectedPoint = state.path[mouse.lastSelectedIndex]
       const copyPoint = JSON.parse(JSON.stringify(selectedPoint))
-      if (copyPoint.type === 'Q') {
-        copyPoint.xQ = copyPoint.x
-        copyPoint.yQ = copyPoint.y
+      if (isDoublePointType(copyPoint.type)) {
+        copyPoint.xC = copyPoint.x
+        copyPoint.yC = copyPoint.y
         copyPoint.isCurved = false
       }
       state.path.splice(mouse.lastSelectedIndex, 0, copyPoint)
@@ -768,13 +894,7 @@ const handleKeyDown = e => {
   /* -------------------------------- toggle snap ------------------------------- */
   if (e.key.toLowerCase() === 'g') {
     state.gridSnapOn = !state.gridSnapOn
-    if (state.gridSnapOn) {
-      window.transformedPattern.setAttribute('width', state.gridSnapSize)
-      window.transformedPattern.setAttribute('height', state.gridSnapSize)
-    } else {
-      window.transformedPattern.setAttribute('width', 0)
-      window.transformedPattern.setAttribute('height', 0)
-    }
+    checkGridSnap()
     console.log('toggled snap to', state.gridSnapOn)
     alertUser('toggled snap to ' + state.gridSnapOn)
   }
@@ -783,9 +903,12 @@ const handleKeyDown = e => {
   if (e.key.toLowerCase() === 'q') {
     // reset mouse and state
     mouse = JSON.parse(JSON.stringify(mouseInitialize))
-    state = JSON.parse(JSON.stringify(stateInitialize))
-    console.log('everything reset')
-    alertUser('everything reset')
+    // state = JSON.parse(JSON.stringify(stateInitialize))
+    state.path = []
+    state.activePoint = null
+    updateHistory()
+    console.log('entire path removed')
+    alertUser('entire path removed')
   }
 
   /* ------------------------------ resize shape ----------------------------- */
@@ -798,10 +921,92 @@ const handleKeyDown = e => {
       alertUser('path resized')
     }
   }
+
+  /* ----------------------------- decimal places ---------------------------- */
+  if (e.key === '+' && state.decimals < 5) {
+    state.decimals++
+    alertUser(`Path now using ${state.decimals} decimal places`)
+  }
+  if (e.key === '-' && state.decimals > 0) {
+    state.decimals--
+    alertUser(`Path now using ${state.decimals} decimal places`)
+  }
+
+  /* --------------------------- toggle path markers -------------------------- */
+  if (e.key.toLowerCase() === 'm') {
+    state.showAllPointMarkers = !state.showAllPointMarkers
+    setJsBasedStyles()
+    alertUser(
+      state.showAllPointMarkers
+        ? 'showing all path markers'
+        : 'hiding all path markers'
+    )
+  }
+
+  /* ---------------------------- cycle point type ---------------------------- */
+  if (e.key.toLowerCase() === 't') {
+    const selected = state.path[mouse.lastSelectedIndex]
+    const isDrawing =
+      state.activePoint !== null
+        ? state.path.length - 1 === state.activePoint
+        : false
+    const types = ['L', 'Q', 'S', 'T']
+    const describe = {
+      L: 'L: Line point set',
+      Q: 'Q: Quadratic bezier curve point set',
+      S: 'S: Smooth curve point set',
+      T: 'T: Smooth quadratic bezier curve point set'
+    }
+
+    if (!isDrawing && selected) {
+      selected.type = types[(types.indexOf(selected.type) + 1) % types.length]
+      alertUser('type ' + describe[selected.type])
+      // Q,S
+      if (isDoublePointType(selected.type)) {
+        selected.xC = selected.xC || selected.x
+        selected.yC = selected.yC || selected.y
+        selected.isCurved = selected.isCurved || false
+        updateHistory()
+        return undefined
+      }
+      // T, L
+      if (isSinglePointType(selected.type)) {
+        selected.xC = undefined
+        selected.yC = undefined
+        selected.isCurved = undefined
+        updateHistory()
+        return undefined
+      }
+    }
+
+    if (!selected || isDrawing) {
+      state.drawPointType =
+        types[(types.indexOf(state.drawPointType) + 1) % types.length]
+      alertUser('Drawing ' + describe[state.drawPointType])
+    }
+  }
 }
 
-const loadBackgroundImage = url => {
-  console.log(url)
+// helpers for safe point types
+const isSelectableType = v => ['Q', 'T', 'S', 'L', 'C'].indexOf(v) > -1
+const isSinglePointType = v => ['M', 'T', 'L'].indexOf(v) > -1
+const isDoublePointType = v => ['Q', 'S'].indexOf(v) > -1
+// const isTripplePointType = v => v === 'C'
+
+// load grid style
+const checkGridSnap = () => {
+  if (state.gridSnapOn) {
+    window.transformedPattern.setAttribute('width', state.gridSnapSize)
+    window.transformedPattern.setAttribute('height', state.gridSnapSize)
+  } else {
+    window.transformedPattern.setAttribute('width', 0)
+    window.transformedPattern.setAttribute('height', 0)
+  }
+}
+
+// try to load image for background from url
+const loadBackgroundImage = (url, quiet = false) => {
+  console.log('attempting to load', url)
   if (url) {
     if (
       url.endsWith('.jpg') ||
@@ -822,16 +1027,16 @@ const loadBackgroundImage = url => {
       `,
         'for_backgroundImage'
       )
-      alertUser('image url loaded')
+      if (!quiet) alertUser('image url loaded')
     } else {
       state.backgroundImage = ''
-      updateHeader('', 'for_backgroundImage')
-      alertUser('image url was not jpeg/jpg/png/gif')
+      updateHeader(``, 'for_backgroundImage')
+      if (!quiet) alertUser('image url was not jpeg/jpg/png/gif')
     }
   } else {
     state.backgroundImage = ''
-    updateHeader('', 'for_backgroundImage')
-    alertUser('background image cleared')
+    updateHeader(``, 'for_backgroundImage')
+    if (!quiet) alertUser('background image cleared')
   }
 }
 
@@ -859,6 +1064,66 @@ const alertUser = text => {
 // few constants I need
 const [LEFT_MOUSE_BUTTON, RIGHT_MOUSE_BUTTON] = [0, 2]
 
+// take all points and resize them around center by x(1+deltaScale) in or out
+// the point at center (e.g. mouse coordiantes) does not move from their location
+const zoomShape = ({ centerX, centerY, deltaScale }) => {
+  let point,
+    multiplier = 1 + deltaScale,
+    len = state.path.length
+  for (let i = 0; i < len; i++) {
+    point = state.path[i]
+    // skip non-positioned types
+    if (point.type === 'Z') continue
+    // types that have x/y
+    if (point.x !== undefined && point.x !== null) {
+      point.x = (point.x - centerX) * multiplier + centerX
+      point.y = (point.y - centerY) * multiplier + centerY
+    }
+    // types that have 2nd set of coods: xC yC
+    if (point.xC !== undefined && point.xC !== null) {
+      point.xC = (point.xC - centerX) * multiplier + centerX
+      point.yC = (point.yC - centerY) * multiplier + centerY
+    }
+  }
+}
+
+// move shape from reference starting positoins by specific deltas
+let referencePositions = []
+const panShape = ({ deltaX, deltaY, stop = false }) => {
+  // abort movement
+  if (stop) {
+    referencePositions = []
+    return undefined
+  }
+
+  if (!referencePositions.length) {
+    // if no referencePositions yet, create
+    referencePositions = JSON.parse(JSON.stringify(state.path))
+  } else {
+    // if have reference positions, shift all by deltas
+    let len = state.path.length,
+      refPoint,
+      point
+    for (let i = 0; i < len; i++) {
+      refPoint = referencePositions[i]
+      point = state.path[i]
+      // skip non-positioned types
+      if (point.type === 'Z') continue
+      // types that have x/y
+      if (point.x !== undefined) {
+        point.x = refPoint.x + deltaX
+        point.y = refPoint.y + deltaY
+      }
+      // types that have xC/yC
+      if (point.xC !== undefined) {
+        point.xC = refPoint.xC + deltaX
+        point.yC = refPoint.yC + deltaY
+      }
+    }
+  }
+}
+
+// autofit entire shape
 const resizeToFit = (fractionToFill = 0.9) => {
   if (!state.path.length || state.path.length <= 1) return undefined
   // resize to visible size
@@ -900,62 +1165,65 @@ const resizeToFit = (fractionToFill = 0.9) => {
     if (point.y)
       state.path[i].y =
         ((point.y - topmostPoint) * conversionFactor + topMargin) << 0
-    if (point.xQ)
-      state.path[i].xQ =
-        ((point.xQ - leftmostPoint) * conversionFactor + leftMargin) << 0
-    if (point.yQ)
-      state.path[i].yQ =
-        ((point.yQ - topmostPoint) * conversionFactor + topMargin) << 0
+    if (point.xC)
+      state.path[i].xC =
+        ((point.xC - leftmostPoint) * conversionFactor + leftMargin) << 0
+    if (point.yC)
+      state.path[i].yC =
+        ((point.yC - topmostPoint) * conversionFactor + topMargin) << 0
   }
+  updateHistory()
 }
 
 // initial placeholder conversion
-const initialImage = () => {
+const loadInitialPlaceholder = () => {
   const pathToUse = state.placeholderPath
 
-  const pathSourceArray = pathToUse.split(' ')
-  // const pathResultArray = []
+  const pathSourceArray = pathToUse.split(/[\s,]{1}/)
 
-  // let currentPt = ''
   for (let i = 0; i < pathSourceArray.length; i++) {
     const part = pathSourceArray[i]
-    if (part === 'M') {
-      state.path.push({
-        type: 'M',
-        x: +pathSourceArray[i + 1],
-        y: +pathSourceArray[i + 2]
-      })
-      i += 2
-    }
-    if (part === 'Q') {
-      state.path.push({
-        type: 'Q',
-        xQ: +pathSourceArray[i + 1],
-        yQ: +pathSourceArray[i + 2],
-        x: +pathSourceArray[i + 3],
-        y: +pathSourceArray[i + 4],
-        isCurved: true
-      })
-      i += 4
-    }
+    // treat L as Q to make it easier to edit
     if (part === 'L') {
       state.path.push({
         type: 'Q',
-        xQ: +pathSourceArray[i + 1],
-        yQ: +pathSourceArray[i + 2],
+        xC: +pathSourceArray[i + 1],
+        yC: +pathSourceArray[i + 2],
         x: +pathSourceArray[i + 1],
         y: +pathSourceArray[i + 2],
         isCurved: false
       })
       i += 2
     }
+    // rest of single coods
+    if (part === 'M' || part === 'T') {
+      state.path.push({
+        type: part,
+        x: +pathSourceArray[i + 1],
+        y: +pathSourceArray[i + 2]
+      })
+      i += 2
+    }
+    // double coods
+    if (part === 'Q' || part === 'S') {
+      state.path.push({
+        type: part,
+        xC: +pathSourceArray[i + 1],
+        yC: +pathSourceArray[i + 2],
+        x: +pathSourceArray[i + 3],
+        y: +pathSourceArray[i + 4],
+        isCurved: true
+      })
+      i += 4
+    }
     if (part === 'Z') {
       state.path.push({ type: 'Z' })
     }
   }
-
+  mouse.lastSelectedIndex = 30
   resizeToFit()
-  updateHistory()
 }
 
-initialize()
+window.onload = () => {
+  initialize()
+}
